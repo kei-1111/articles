@@ -50,16 +50,30 @@ function convertImages(body, dir) {
   return out;
 }
 
-function buildPayload(data, body) {
+function mapTag(t) {
+  return typeof t === "string"
+    ? { name: t, versions: [] }
+    : { name: t.name, versions: t.versions || [] };
+}
+
+function buildCreatePayload(data, body) {
   return {
     title: data.title,
     body,
-    tags: (data.tags || []).map((t) =>
-      typeof t === "string" ? { name: t, versions: [] } : { name: t.name, versions: t.versions || [] },
-    ),
+    tags: (data.tags || []).map(mapTag),
     private: data.private ?? true,
     tweet: false,
   };
+}
+
+function buildUpdatePayload(data, body) {
+  const payload = {
+    title: data.title,
+    body,
+    tags: (data.tags || []).map(mapTag),
+  };
+  if (data.private !== undefined) payload.private = data.private;
+  return payload;
 }
 
 async function qiita(method, path, body) {
@@ -92,16 +106,15 @@ const parsed = matter(raw);
 if (!parsed.data.title) throw new Error("frontmatter 'title' is required");
 
 const converted = convertImages(parsed.content, articleDir);
-const payload = buildPayload(parsed.data, converted);
 
 const id = parsed.data.qiita_id;
 let result;
 if (id) {
   console.log(`[update] ${articleDir} → ${id}`);
-  result = await qiita("PATCH", `/items/${id}`, payload);
+  result = await qiita("PATCH", `/items/${id}`, buildUpdatePayload(parsed.data, converted));
 } else {
   console.log(`[create] ${articleDir}`);
-  result = await qiita("POST", "/items", payload);
+  result = await qiita("POST", "/items", buildCreatePayload(parsed.data, converted));
   const updated = matter.stringify(parsed.content, { ...parsed.data, qiita_id: result.id });
   await writeFile(articlePath, updated);
 }
