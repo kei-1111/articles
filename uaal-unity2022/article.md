@@ -8,6 +8,7 @@ tags:
   - Kotlin
 author: kei-1111
 slide: false
+qiita_id: 87bb74ffef15158b5378
 ---
 # はじめに
 
