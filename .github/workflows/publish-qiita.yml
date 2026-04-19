@@ -1,0 +1,46 @@
+name: Publish to Qiita
+
+on:
+  push:
+    branches-ignore: [main]
+    paths:
+      - "*/article.md"
+      - "*/images/**"
+      - "scripts/publish-qiita.mjs"
+      - ".github/workflows/publish-qiita.yml"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm install
+
+      - name: Publish
+        run: node scripts/publish-qiita.mjs
+        env:
+          QIITA_TOKEN: ${{ secrets.QIITA_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TARGET_BRANCH: ${{ github.ref_name }}
+
+      - name: Commit Qiita item IDs
+        run: |
+          if [[ -n "$(git status --porcelain '*/article.md')" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add '*/article.md'
+            git commit -m "chore: store qiita_id [skip ci]"
+            git push origin HEAD:${{ github.ref_name }}
+          fi
